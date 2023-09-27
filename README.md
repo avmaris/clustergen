@@ -90,7 +90,7 @@ Here's an example of a cluster describtion:
 Artem - marisov.av@gmail.com
 
 ## Acknowledgments
-https://slurm.schedmd.com/quickstart_admin.html
-https://www.ni-sp.com/slurm-build-script-and-container-commercial-support/
-https://slurm.schedmd.com/slurm_ug_2011/Basic_Configuration_Usage.pdf
-https://slurm.schedmd.com/slurm.conf.html
+* https://slurm.schedmd.com/quickstart_admin.html
+* https://www.ni-sp.com/slurm-build-script-and-container-commercial-support/
+* https://slurm.schedmd.com/slurm_ug_2011/Basic_Configuration_Usage.pdf
+* https://slurm.schedmd.com/slurm.conf.html
