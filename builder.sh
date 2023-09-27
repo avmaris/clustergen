@@ -25,5 +25,5 @@ fi
 python3 cgen.py -i $CLUSTERGEN_DIR/cluster.json -d $CLUSTERGEN_DIR/build -f 
 
 if [ "$BUILD_RPM" == "y" ] ; then
-  $CLUSTERGEN_DIR/build/scripts/
+  $CLUSTERGEN_DIR/build/scripts/install.sh
 fi
