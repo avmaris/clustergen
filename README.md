@@ -21,7 +21,7 @@ Scripts have been tested on each of the above CentOS versions to ensure compatib
 
 ## Builder Host Dependencies
 
-Cluster installation script generation process is designed to be versatile and compatible with Bash-compatible machines. This means you can easily generate installation scripts on a wide range of operating systems as long as they support Bash.
+The cluster installation script generation process is designed to be versatile and compatible with Bash-compatible machines. This means you can easily generate installation scripts on a wide range of operating systems as long as they support Bash.
 
 Software Dependency:
 - Python
@@ -32,8 +32,8 @@ Python Package Dependencies:
 ** If you plan to pre-build Slurm packages on a builder host for subsequent use on your cluster machines, it's essential to ensure that your host's operating system corresponds to that of the cluster machines.
 
 ## Quick Start
-### Generate Instalation Package
-To create an example installation package for run a script from repository:
+### Generate Installation Package
+To create an example installation package for running a script from the repository:
 `
 ./build.sh
 `
@@ -47,44 +47,39 @@ To initiate the installation process on your cluster nodes, simply execute the f
 `
 
 ## Cluster Description File
-Here's an example of a cluster describtion:
+Here's an example of a cluster description:
 ```JSON
 {
-  "Name" : "examplecluster",
+  "Name": "examplecluster",
   "SlurmVersion" : "20.11.9",
   "Nodes": [
     {
       "Name": "master",
-      "CPUs": "7",
       "IP": "192.168.1.1",
       "Feature": "dcv2,other"
-    },
-    {
-      "Name": "worker1",
-      "IP": "192.168.1.2"
     },
     {
       "Name": "worker2",
       "CPUs": "16"
     }
   ],
-  "Controller" : {
+  "Controller": {
     "Name": "master",
     "IP": "192.168.1.1"
   }
 }
 ```
 
-* 'Name' : Cluster name
-* 'SlurmVersion' : Target Slurm Version. Reffer to https://download.schedmd.com/slurm/ to see availible versions
-* 'Nodes' : List of computation nodes. Each node is an object with its own properties, representing a nested structure.
-    * 'Name' : Node host name
-    * 'CPUs' : Number of CPUs for a node (optional)
-    * 'IP': IP address of the node (optional). For network without DNS - mandatory
-    * 'Feature' : A comma-delimited list of arbitrary strings indicative of some characteristic associated with the node [https://slurm.schedmd.com/slurm.conf.html] (optional)
-* 'Controller' : Controller could be a computation node as well. Controller describtion:
-    * 'Name' : Controller host name
-    * 'IP': IP address of the controller (optional). For network without DNS - mandatory
+* 'Name': Cluster name
+* 'SlurmVersion' : Target Slurm Version. Refer to https://download.schedmd.com/slurm/ to see available versions
+* 'Nodes': List of computation nodes. Each node is an object with its own properties, representing a nested structure.
+    * 'Name': Node hostname
+    * 'CPUs': Number of CPUs for a node (optional)
+    * 'IP': IP address of the node (optional). For networks without DNS - mandatory
+    * 'Feature': A comma-delimited list of arbitrary strings indicative of some characteristic associated with the node [https://slurm.schedmd.com/slurm.conf.html] (optional)
+* 'Controller': The Controller could be a computation node as well. Controller description:
+    * 'Name': Controller hostname
+    * 'IP': IP address of the controller (optional). For networks without DNS - mandatory
 
 ## Contact
 Artem - marisov.av@gmail.com
