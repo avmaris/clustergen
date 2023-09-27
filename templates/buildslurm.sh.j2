@@ -1,0 +1,122 @@
+#! /bin/bash
+################################################################################
+# Scrip to build SLURM rpm packages
+# Auto generated : {{generationtime}}
+################################################################################
+#
+# TODO: Clean up dependency
+#
+
+{%if content.SlurmVersion %}
+    VER={{content.SlurmVersion}}
+{% endif %}
+# 
+if [ "$VER" == "" ]; then
+    # VER=20.02-latest    # latest 20.02.XX version
+    # VER=20.11.3
+    # VER=20.11-latest   # slurm-20.11-latest.tar.bz2
+    # VER=20.11.9        # slurm-20.11-latest.tar.bz2
+    # VER=22.05.9    
+    VER=20.11.9    
+    # export VER=23.02.2   
+fi
+
+ROOT_PATH=$PWD
+
+# Use build of current folder if not specify
+if [ "$BUILD" == "" ]; then
+    BUILD=$PWD/build
+fi
+
+RPMBUILD="$BUILD/rpmbuild"
+TMP="$BUILD/tmp"
+LOG="$BUILD/build.log"
+
+echo $RPMBUILD
+echo $TMP
+
+rm -rf $TMP
+rm -rf $RPMBUILD
+mkdir -p $RPMBUILD
+mkdir -p $TMP
+mkdir -p $CLUSTERCFG
+
+OSVERSION="7"
+# [ "`hostnamectl | grep Kernel | grep el8`" != "" ] && OSVERSION="8"
+. /etc/os-release
+if [[ $VERSION =~ ^8 ]] ; then
+    OSVERSION="8"
+    # in case of repo access issues uncomment the following lines
+    # sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+    # sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+fi
+if [[ $VERSION =~ ^9 ]] ; then
+    OSVERSION="9"
+fi
+
+# SLURM accounting support
+if [ "$OSVERSION" == "9" ] ; then
+    sudo yum install mariadb-server dnf -y
+else
+    sudo yum install mariadb-server mariadb-devel dnf -y
+fi
+
+
+# install munge
+if [ "$OSVERSION" == "7" ] ; then
+    sudo yum install munge munge-libs munge-devel -y
+fi
+if [ "$OSVERSION" == "8" ] ; then
+    sudo yum install munge munge-libs  -y
+    sudo dnf --enablerepo=powertools install munge-devel -y
+fi
+if [ "$OSVERSION" == "9" ] ; then
+    sudo yum install munge munge-libs  -y
+    sudo dnf --enablerepo=crb install mariadb-devel munge-devel -y
+fi
+
+sudo yum install wget python3 gcc openssl openssl-devel pam-devel numactl \
+  numactl-devel hwloc lua readline-devel ncurses-devel man2html libibmad \
+  libibumad rpm-build  perl-ExtUtils-MakeMaker.noarch -y
+
+if [ "$OSVERSION" == "7" ] ; then
+    sudo yum install rrdtool-devel lua-devel hwloc-devel -y
+fi
+if [ "$OSVERSION" == "8" ] ; then
+    sudo yum install rpm-build make -y
+    # dnf --enablerepo=PowerTools install rrdtool-devel lua-devel hwloc-devel -y
+    sudo dnf --enablerepo=powertools install rrdtool-devel lua-devel hwloc-devel rpm-build -y
+    # dnf group install "Development Tools"
+fi
+if [ "$OSVERSION" == "9" ] ; then
+    sudo yum install rpm-build make -y
+    # dnf --enablerepo=PowerTools install rrdtool-devel lua-devel hwloc-devel -y
+    sudo dnf --enablerepo=crb install rrdtool-devel lua-devel hwloc-devel -y
+    # dnf group install "Development Tools"
+fi
+
+cd $TMP
+
+# https://download.schedmd.com/slurm/slurm-20.02.3.tar.bz2
+wget https://download.schedmd.com/slurm/slurm-$VER.tar.bz2
+
+[ $? != 0 ] && echo Problem downloading https://download.schedmd.com/slurm/slurm-$VER.tar.bz2 ... Exiting && exit
+
+if [ "$OSVERSION" == "9" ] ; then
+    # fix LTO issue on 9
+    # https://bugs.schedmd.com/show_bug.cgi?id=14565
+    rpmbuild -ta slurm-$VER.tar.bz2 --define '_lto_cflags %{nil}'  --define "_rpmdir $RPMBUILD"    # and wait a few minutes until SLURM has been compiled
+else
+    rpmbuild -ta slurm-$VER.tar.bz2 --define "_rpmdir $RPMBUILD"     # and wait a few minutes until SLURM has been compiled
+fi
+
+rm -rf $TMP
+
+cd $ROOT_PATH
+
+# rmdir slurm-tmp 
+
+# # get perl-Switch
+# # sudo yum install cpan -y 
+
+# cd ~/rpmbuild/RPMS/x86_64/

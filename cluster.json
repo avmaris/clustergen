@@ -1,0 +1,28 @@
+{
+  "Name" : "examplecluster",
+  "SlurmVersion" : "20.11.9",
+  "Nodes": [
+    {
+      "Name": "master",
+      "CPUs": "7",
+      "IP": "192.168.1.1",
+      "Feature": "dcv2,other"
+    },
+    {
+      "Name": "worker1",
+      "CPUs": "16",
+      "IP": "192.168.1.2"
+    },
+    {
+      "Name": "worker2",
+      "CPUs": "16",
+      "IP": "192.168.1.3"
+    }
+  ],
+  
+  "Controller" : {
+    "Name": "master",
+    "IP": "192.168.1.1"
+  }
+
+}

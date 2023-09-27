@@ -1,0 +1,6 @@
+If freezer mount error:
+>> `/usr/sbin/slurmd -D`
+>> ...
+>> # slurmd: error: unable to mount freezer cgroup namespace: Permission denied
+
+Workaround: `sudo chmod 777 /sys/fs/cgroup`

@@ -1,0 +1,40 @@
+#
+# Automatic SLURM built and installation script for EL7, EL8 and EL9 and derivatives 
+#
+SCRIPT_PATH=`realpath $0`
+ROOT_PATH=`dirname $SCRIPT_PATH`
+
+export BUILD=`realpath $ROOT_PATH/..`
+RPMBUILD="$BUILD/rpmbuild"
+
+# $ROOT_PATH/SLURM_installation.sh
+# wait a couple of minutes
+# and test your SLURM installation yourself
+# sinfo
+# see above for more SLURM commands and their output
+
+RPM_FILE_LIST=" \
+ slurm-[0-9]*.el*.x86_64.rpm \
+ slurm-contribs-*.el*.x86_64.rpm \
+ slurm-devel-*.el*.x86_64.rpm \
+ slurm-example-configs-*.el*.x86_64.rpm \
+ slurm-libpmi-*.el*.x86_64.rpm  \
+ slurm-pam_slurm-*.el*.x86_64.rpm \
+ slurm-perlapi-*.el*.x86_64.rpm \
+ slurm-slurmctld-*.el*.x86_64.rpm \
+ slurm-slurmd-*.el*.x86_64.rpm \
+ slurm-slurmdbd-*.el*.x86_64.rpm \
+"
+
+for ITEM in ${RPM_FILE_LIST[@]}; do
+  if [ ! -f $RPMBUILD/x86_64/$ITEM ]
+  then
+      MISSING_FILES="$ITEM $MISSING_FILES"
+  fi
+done
+
+if [ ! -z "$MISSING_FILES"  ] ; then
+    $ROOT_PATH/buildslurm.sh
+fi
+
+$ROOT_PATH/SLURM_installation.sh

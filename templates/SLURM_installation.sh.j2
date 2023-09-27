@@ -1,0 +1,280 @@
+#! /bin/bash
+################################################################################
+# Slurm Installation script
+# Auto generated : {{generationtime}}
+################################################################################
+
+SCRIPT_PATH=`realpath $0`
+ROOT_PATH=`dirname $SCRIPT_PATH`
+
+USERNAME=`whoami`
+# - Cluster properties -
+SLURMCTLDPORT=6817
+SLURMDPORT=6818
+
+CLUSTERCFG="$ROOT_PATH/../clustercfg"
+LOCAL_RPM="$ROOT_PATH/../rpmbuild/x86_64/"
+
+LOG_FILE=$ROOT_PATH/../install.log
+rm -f $LOG_FILE
+
+# Check for RH/CentOS Version
+OSVERSION="7"
+# [ "`hostnamectl | grep Kernel | grep el8`" != "" ] && OSVERSION="8"
+. /etc/os-release
+if [[ $VERSION =~ ^8 ]] ; then
+    OSVERSION="8"
+    # in case of repo access issues uncomment the following lines
+    # sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+    # sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+fi
+if [[ $VERSION =~ ^9 ]] ; then
+    OSVERSION="9"
+fi
+
+# Identify host specializetion -------------------------------------------------
+HOST_IPS=(`hostname -I`)
+NODE_IPS="(
+{%- for node in content.Nodes -%}
+  {##} {{node.IP}} {##}
+{%- endfor -%}
+  )"
+
+HOST_DNS=(`hostname -s`)
+NODE_DNS="(
+  {%- for node in content.Nodes -%}
+  {##} {{node.Name}} {##}
+{%- endfor -%}
+  )"
+
+CTL_IP="{{content.Controller.IP}}"
+CTL_DNS="{{content.Controller.Name}}"
+
+NODE_IP_IT=" ${NODE_IPS[*]} "
+
+NODE_HOST=""
+MASTER_HOST=""
+
+for ITEM in ${HOST_IPS[@]}; do
+  if [[ $NODE_IP_IT =~ " $ITEM " ]] ; then
+    NODE_HOST=$ITEM
+  fi
+done
+
+if [[ ${HOST_IPS[@]} =~ $CTL_IP ]] ; then
+  MASTER_HOST=$CTL_IP
+fi
+
+# Resolve by hostname
+if [[ ${NODE_DNS[@]} =~ $HOST_DNS ]] ; then
+  NODE_HOST=$HOST_DNS
+fi
+
+if [[ "$HOST_DNS" == "$CTL_DNS" ]] ; then
+  MASTER_HOST=$CTL_DNS
+fi
+# ------------------------------------------------------------------------------
+
+function epelinstall {
+  # For CentOS 7: need to get the latest EPEL repository.
+  sudo yum install epel-release -y
+  if [ "$OSVERSION" == "7" ] ; then
+      sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm -y
+      # sudo dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+  fi
+  if [ "$OSVERSION" == "8" ] ; then
+      sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm -y
+      # sudo dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+  fi
+  if [ "$OSVERSION" == "9" ] ; then
+      sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm -y
+      # sudo dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+  fi
+}
+
+function common_setup {
+  export SLURMUSER=967
+  sudo groupadd -g $SLURMUSER slurm
+  sudo useradd  -m -c "SLURM workload manager" -d /var/lib/slurm -u $SLURMUSER -g slurm  -s /bin/bash slurm
+
+  epelinstall
+
+  sudo mkdir -p /var/spool/slurm
+  sudo chown slurm:slurm /var/spool/slurm
+  sudo chmod 755 /var/spool/slurm
+
+  munge_setup
+}
+
+function munge_setup {
+  export MUNGEUSER=966
+  sudo groupadd -g $MUNGEUSER munge
+  sudo useradd  -m -c "MUNGE Uid 'N' Gid Emporium" -d /var/lib/munge -u $MUNGEUSER -g munge  -s /sbin/nologin munge
+
+
+  # install munge
+  echo "Install munge" >> $LOG_FILE
+  if [ "$OSVERSION" == "7" ] ; then
+      sudo yum install munge munge-libs munge-devel -y
+  fi
+  if [ "$OSVERSION" == "8" ] ; then
+      sudo yum install munge munge-libs  -y
+      sudo dnf --enablerepo=powertools install munge-devel -y
+  fi
+  if [ "$OSVERSION" == "9" ] ; then
+      sudo yum install munge munge-libs  -y
+      sudo dnf --enablerepo=crb install mariadb-devel munge-devel -y
+  fi
+  
+  # sudo yum install rng-tools -y
+  # sudo rngd -r /dev/urandom
+
+  sudo cp $CLUSTERCFG/munge.key /etc/munge/munge.key
+  sudo chown munge: /etc/munge/munge.key
+  sudo chmod 400 /etc/munge/munge.key
+
+  sudo systemctl enable munge
+  sudo systemctl start munge
+}
+
+
+
+function slurm_master {
+  echo "Slurm_master installation"
+  sudo firewall-cmd --permanent --zone=public --add-port=6817/udp
+  sudo firewall-cmd --permanent --zone=public --add-port=6817/tcp
+  sudo firewall-cmd --permanent --zone=public --add-port=6818/tcp
+  sudo firewall-cmd --permanent --zone=public --add-port=6818/tcp
+  sudo firewall-cmd --permanent --zone=public --add-port=7321/tcp
+  sudo firewall-cmd --permanent --zone=public --add-port=7321/tcp
+  sudo firewall-cmd --reload
+
+  echo Os version: $OSVERSION >> $LOG_FILE
+  echo "SLURM accounting support" >> $LOG_FILE
+  
+  # SLURM accounting support
+  if [ "$OSVERSION" == "9" ] ; then
+      sudo yum install mariadb-server  dnf -y
+  else
+      sudo yum install mariadb-server mariadb-devel dnf -y
+  fi
+
+  cd $LOCAL_RPM
+  sudo yum --nogpgcheck localinstall \
+    slurm-[0-9]*.el*.x86_64.rpm \
+    slurm-perlapi-*.el*.x86_64.rpm \
+    slurm-slurmctld-*.el*.x86_64.rpm \
+    slurm-example-configs-*.el*.x86_64.rpm \
+    slurm-slurmdbd-*.el*.x86_64.rpm -y
+{#
+    # slurm-contribs-*.el*.x86_64.rpm \
+    # slurm-devel-*.el*.x86_64.rpm \
+    # slurm-libpmi-*.el*.x86_64.rpm  \
+    # slurm-pam_slurm-*.el*.x86_64.rpm \
+    # slurm-slurmd-*.el*.x86_64.rpm \
+#}
+
+  cd $ROOT_PATH
+  sudo mkdir -p /var/spool/slurm/slurmctld
+  sudo chown slurm:slurm /var/spool/slurm/slurmctld
+  sudo chmod 755 /var/spool/slurm/slurmctld
+
+  sudo mkdir -p /var/spool/slurm/cluster_state
+  sudo chown slurm:slurm /var/spool/slurm/cluster_state
+  sudo touch /var/log/slurmctld.log
+  sudo chown slurm:slurm /var/log/slurmctld.log
+  sudo touch /var/log/slurm_jobacct.log /var/log/slurm_jobcomp.log
+  sudo chown slurm: /var/log/slurm_jobacct.log /var/log/slurm_jobcomp.log
+
+  sudo chmod 777 /var/spool   # hack for now as otherwise slurmctld is complaining
+}
+
+function master_run {
+  sudo systemctl enable slurmctld
+  sudo systemctl enable slurmdbd
+
+  sudo systemctl start slurmdbd
+  sudo systemctl start slurmctld.service
+}
+
+function node_run {
+  sudo systemctl enable slurmd.service
+  sudo systemctl start slurmd.service
+
+  echo Sleep for a few seconds for slurmd to come up ...
+  sleep 2
+}
+
+{#
+  Head Node (where the slurmctld daemon runs),
+  Compute and Login Nodes
+    slurm
+    slurm-perlapi
+    slurm-slurmctld (only on the head node)
+    slurm-slurmd (only on the compute nodes)
+  SlurmDBD Node
+    slurm
+    slurm-slurmdbd
+#}
+
+function slurm_node {
+  echo "slurm_node installation"
+  
+  cd $LOCAL_RPM
+  sudo yum --nogpgcheck localinstall \
+    slurm-[0-9]*.el*.x86_64.rpm \
+    slurm-perlapi-*.el*.x86_64.rpm \
+    slurm-slurmd-*.el*.x86_64.rpm \
+    slurm-example-configs-*.el*.x86_64.rpm \
+    -y
+    
+  cd $ROOT_PATH
+{#
+    # slurm-contribs-*.el*.x86_64.rpm \
+    # slurm-devel-*.el*.x86_64.rpm \
+    # slurm-libpmi-*.el*.x86_64.rpm  \
+    # slurm-pam_slurm-*.el*.x86_64.rpm \
+    # slurm-slurmctld-*.el*.x86_64.rpm \
+    # slurm-slurmdbd-*.el*.x86_64.rpm -y
+#}
+
+  sudo mkdir -p /var/spool/slurm/slurmd
+  sudo chown slurm:slurm /var/spool/slurm/slurmd
+  sudo chmod 755 /var/spool/slurm/slurmd
+
+  # firewall will block connections between nodes so in case of cluster
+  # with multiple nodes adapt the firewall on the compute nodes 
+  echo "Security issue! firewall is down!"
+  sudo systemctl stop firewalld
+  sudo systemctl disable firewalld
+}
+
+# ------------------------------------------------------------------------------
+
+if [[ -z $MASTER_HOST && -z $NODE_HOST ]]; then
+  echo 'Undefine host usage.'
+  echo 'Check cluster configuration and/or network settings.'
+
+else
+  common_setup
+
+  if [ ! -z "$MASTER_HOST"  ] ; then
+      slurm_master
+  fi
+
+  if [ ! -z  "$NODE_HOST" ] ; then
+      slurm_node
+  fi
+
+  sudo cp $CLUSTERCFG/slurm.conf /etc/slurm/slurm.conf
+  sudo cp $CLUSTERCFG/cgroup.conf /etc/slurm/cgroup.conf
+
+  if [ ! -z  "$NODE_HOST" ] ; then
+    node_run
+  fi
+
+  if [ ! -z "$MASTER_HOST"  ] ; then
+    master_run
+  fi
+
+fi
