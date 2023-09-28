@@ -8,9 +8,10 @@
 #
 
 {%if content.SlurmVersion %}
-    VER={{content.SlurmVersion}}
+    {# #}VER={{content.SlurmVersion}}
 {% endif %}
-# 
+
+{#
 if [ "$VER" == "" ]; then
     # VER=20.02-latest    # latest 20.02.XX version
     # VER=20.11.3
@@ -20,6 +21,7 @@ if [ "$VER" == "" ]; then
     VER=20.11.9    
     # export VER=23.02.2   
 fi
+#} 
 
 ROOT_PATH=$PWD
 
